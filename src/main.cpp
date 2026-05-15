@@ -722,47 +722,72 @@ static uint8_t wrapInto(const char* in, char out[][24], uint8_t maxRows, uint8_t
   return row;
 }
 
-static void drawApproval() {
+static void drawApprovalFullscreen() {
   const Palette& p = characterPalette();
-  const int AREA = 78;
-  spr.fillRect(0, H - AREA, W, AREA, p.bg);
-  spr.drawFastHLine(0, H - AREA, W, p.textDim);
+  // Canvas already cleared by base-layer skip when inPrompt is true
+  int y = 4;
 
+  // Header: "APPROVE?" with timer
+  spr.setTextSize(2);
+  uint32_t waited = (millis() - promptArrivedMs) / 1000;
+  spr.setTextColor(waited >= 10 ? HOT : p.text, p.bg);
+  spr.setCursor(4, y);
+  spr.print("APPROVE?");
   spr.setTextSize(1);
   spr.setTextColor(p.textDim, p.bg);
-  spr.setCursor(4, H - AREA + 4);
-  uint32_t waited = (millis() - promptArrivedMs) / 1000;
-  if (waited >= 10) spr.setTextColor(HOT, p.bg);
-  spr.printf("approve? %lus", (unsigned long)waited);
+  spr.setCursor(W - 30, y + 4);
+  spr.printf("%lus", (unsigned long)waited);
+  y += 22;
 
-  // Size 2 only if it fits one line (~10 chars at 12px on 135px screen)
-  int toolLen = strlen(tama.promptTool);
+  // Separator
+  spr.drawFastHLine(0, y, W, p.textDim);
+  y += 6;
+
+  // Tool name — prominent
+  int tLen = strlen(tama.promptTool);
   spr.setTextColor(p.text, p.bg);
-  spr.setTextSize(toolLen <= 10 ? 2 : 1);
-  spr.setCursor(4, H - AREA + (toolLen <= 10 ? 14 : 18));
-  spr.print(tama.promptTool);
+  if (tLen <= 10) {
+    spr.setTextSize(2);
+    spr.setCursor(4, y);
+    spr.print(tama.promptTool);
+    y += 22;
+  } else {
+    spr.setTextSize(1);
+    spr.setCursor(4, y);
+    spr.print(tama.promptTool);
+    y += 12;
+  }
   spr.setTextSize(1);
 
-  // Hint wraps at ~21 chars to two lines under the tool name
+  // Separator
+  y += 2;
+  spr.drawFastHLine(4, y, W - 8, p.textDim);
+  y += 8;
+
+  // Hint text — word-wrapped across available lines
   spr.setTextColor(p.textDim, p.bg);
   int hlen = strlen(tama.promptHint);
-  spr.setCursor(4, H - AREA + 34);
-  spr.printf("%.21s", tama.promptHint);
-  if (hlen > 21) {
-    spr.setCursor(4, H - AREA + 42);
-    spr.printf("%.21s", tama.promptHint + 21);
+  const int CHARS_PER_LINE = 21;
+  int maxLines = (H - 20 - y) / 10;
+  for (int line = 0; line < maxLines && line * CHARS_PER_LINE < hlen; line++) {
+    spr.setCursor(4, y);
+    int remaining = hlen - line * CHARS_PER_LINE;
+    int chars = remaining < CHARS_PER_LINE ? remaining : CHARS_PER_LINE;
+    spr.printf("%.*s", chars, tama.promptHint + line * CHARS_PER_LINE);
+    y += 10;
   }
 
+  // Button labels at fixed bottom position
   if (responseSent) {
     spr.setTextColor(p.textDim, p.bg);
-    spr.setCursor(4, H - 12);
+    spr.setCursor(4, H - 14);
     spr.print("sent...");
   } else {
     spr.setTextColor(GREEN, p.bg);
-    spr.setCursor(4, H - 12);
+    spr.setCursor(4, H - 14);
     spr.print("A: approve");
     spr.setTextColor(HOT, p.bg);
-    spr.setCursor(W - 48, H - 12);
+    spr.setCursor(W - 48, H - 14);
     spr.print("B: deny");
   }
 }
@@ -888,7 +913,7 @@ void drawPet() {
 }
 
 void drawHUD() {
-  if (tama.promptId[0]) { drawApproval(); return; }
+  if (tama.promptId[0]) { drawApprovalFullscreen(); return; }
   const Palette& p = characterPalette();
   const int SHOW = 3, LH = 8, WIDTH = 21;
   const int AREA = SHOW * LH + 4;
@@ -1116,6 +1141,7 @@ void loop() {
       responseSent = true;
       statsOnDenial();
       beep(600, 60);
+      triggerOneShot(P_DIZZY, 1500);
     } else if (resetOpen) {
       beep(2400, 30);
       applyReset(resetSel);
@@ -1188,6 +1214,10 @@ void loop() {
   if (napping || screenOff || landscapeClock) {
     // skip sprite render — face-down, powered off, or landscape clock
     // (which draws direct-to-LCD below)
+  } else if (inPrompt) {
+    // Full-screen approval — skip pet, clear canvas
+    const Palette& p = characterPalette();
+    spr.fillSprite(p.bg);
   } else if (buddyMode) {
     buddyTick(activeState);
   } else if (characterLoaded()) {
