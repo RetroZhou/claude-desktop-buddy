@@ -727,14 +727,14 @@ static void drawApprovalFullscreen() {
   // Canvas already cleared by base-layer skip when inPrompt is true
   int y = 4;
 
-  // Header: "APPROVE?" with timer
+  // Header: "APPROVE?" with timer — always HOT (orange-red) for urgency
   spr.setTextSize(2);
   uint32_t waited = (millis() - promptArrivedMs) / 1000;
-  spr.setTextColor(waited >= 10 ? HOT : p.text, p.bg);
+  spr.setTextColor(HOT, p.bg);
   spr.setCursor(4, y);
   spr.print("APPROVE?");
   spr.setTextSize(1);
-  spr.setTextColor(p.textDim, p.bg);
+  spr.setTextColor(waited >= 10 ? HOT : p.textDim, p.bg);
   spr.setCursor(W - 30, y + 4);
   spr.printf("%lus", (unsigned long)waited);
   y += 22;
@@ -744,26 +744,27 @@ static void drawApprovalFullscreen() {
   y += 6;
 
   // Summary — human-readable description of what's being requested
-  // Color-code background by tool category
-  const uint16_t TOOL_BG_READ  = 0x0013;  // dark blue — read/search ops
-  const uint16_t TOOL_BG_WRITE = 0x4200;  // dark amber — write/edit ops
-  const uint16_t TOOL_BG_EXEC  = 0x4008;  // dark magenta — shell execution
-  const uint16_t TOOL_BG_PLAN  = 0x2010;  // dark teal — planning/thinking
+  // Color-code background by tool category — brighter for better visibility
+  const uint16_t TOOL_BG_READ  = 0x0018;  // dark blue — read/search ops
+  const uint16_t TOOL_BG_WRITE = 0x6300;  // dark amber — write/edit ops
+  const uint16_t TOOL_BG_EXEC  = 0x600C;  // dark magenta — shell execution
+  const uint16_t TOOL_BG_PLAN  = 0x3018;  // dark teal — planning/thinking
+  const uint16_t TOOL_BG_OTHER = 0x4200;  // dark orange — other tools
 
   uint16_t toolBg = p.bg;
   uint16_t toolFg = p.text;
   const char* t = tama.promptTool;
   if (strcmp(t, "Read") == 0 || strcmp(t, "Grep") == 0 || strcmp(t, "Glob") == 0) {
-    toolBg = TOOL_BG_READ; toolFg = 0x5DFF;  // light blue text
+    toolBg = TOOL_BG_READ; toolFg = 0x7DFF;  // bright blue text
   } else if (strcmp(t, "Edit") == 0 || strcmp(t, "Write") == 0) {
-    toolBg = TOOL_BG_WRITE; toolFg = 0xFE60; // light amber text
+    toolBg = TOOL_BG_WRITE; toolFg = 0xFFE0; // bright yellow text
   } else if (strcmp(t, "Bash") == 0) {
-    toolBg = TOOL_BG_EXEC; toolFg = 0xFC9F;  // light magenta text
+    toolBg = TOOL_BG_EXEC; toolFg = 0xFDFF;  // bright pink text
   } else if (strcmp(t, "Plan") == 0 || strcmp(t, "Task") == 0) {
-    toolBg = TOOL_BG_PLAN; toolFg = 0x67FF;  // light cyan text
+    toolBg = TOOL_BG_PLAN; toolFg = 0x87FF;  // bright cyan text
   } else {
     // All other tools — orange accent
-    toolBg = 0x4200; toolFg = 0xFE60;        // amber/orange
+    toolBg = TOOL_BG_OTHER; toolFg = 0xFFE0;  // bright yellow text
   }
 
   if (tama.promptSummary[0]) {
