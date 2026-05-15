@@ -49,7 +49,24 @@ python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
 
-### 3. Start the daemon
+### 3. Pair the device via Bluetooth
+
+1. Wake the device (press any button)
+2. Confirm Bluetooth is on: long-press A → Settings → Bluetooth → ON
+3. Start the daemon (see next step) — it will scan for `Claude-XXXX` devices
+4. On first connection, the device screen shows a **6-digit passkey** (large centered number)
+5. macOS will pop a Bluetooth pairing dialog — enter the 6 digits shown on the device
+6. Once paired, future reconnects are automatic (no passkey needed)
+
+If macOS doesn't show the pairing dialog, go to **System Settings → Bluetooth**,
+find `Claude-XXXX`, and click **Connect** — the passkey prompt will appear there.
+
+To re-pair (new computer or after factory reset):
+- Remove the old `Claude-XXXX` from macOS Bluetooth settings
+- On device: long-press A → Settings → Reset → Factory Reset → tap twice
+- Restart the daemon and pair again
+
+### 4. Start the daemon
 
 ```bash
 ./run-daemon.sh
@@ -59,11 +76,11 @@ You should see:
 ```
 [12:34:01] scanning for Claude-* device...
 [12:34:03] found Claude-A4B7 (...), connecting...
-[12:34:04] connected, mtu=185
+[12:34:04] connected, mtu=515
 [12:34:04] hook server listening on /tmp/claude-buddy.sock
 ```
 
-### 4. Configure Claude Code hooks
+### 5. Configure Claude Code hooks
 
 Edit `~/.claude/settings.json` (or your project's `.claude/settings.json`).
 Replace `/path/to/` with the actual absolute path where you cloned this repo:
@@ -102,7 +119,7 @@ Replace `/path/to/` with the actual absolute path where you cloned this repo:
 **Important:** The `PreToolUse` hook with `timeout: 180000` (3 minutes) is
 what enables device-side approval. Without it, you only get status mirroring.
 
-### 5. (Optional) Auto-generate hook paths
+### 6. (Optional) Auto-generate hook paths
 
 Run this from the repo root to print the correct JSON with your actual paths:
 
