@@ -74,17 +74,41 @@ def main() -> None:
     if name == "PreToolUse":
         tool = evt.get("tool_name", "")
         tool_input = evt.get("tool_input", {})
-        # Build a short hint from tool_input
+
+        # Build a human-readable summary of what's being requested
+        summary = tool
         hint = ""
         if isinstance(tool_input, dict):
-            hint = str(tool_input.get("command",
-                       tool_input.get("file_path",
-                       tool_input.get("content", ""))))[:40]
+            file_path = tool_input.get("file_path", "")
+            command = tool_input.get("command", "")
+            if tool == "Bash" and command:
+                summary = "Run shell command"
+                hint = command[:96]
+            elif tool == "Edit" and file_path:
+                summary = f"Edit {file_path}"[:56]
+                old = tool_input.get("old_string", "")
+                new = tool_input.get("new_string", "")
+                hint = f"-{old[:40]}\n+{new[:40]}" if old else new[:96]
+            elif tool == "Write" and file_path:
+                summary = f"Write {file_path}"[:56]
+                hint = tool_input.get("content", "")[:96]
+            elif tool == "Read" and file_path:
+                summary = f"Read {file_path}"[:56]
+            elif file_path:
+                summary = f"{tool} {file_path}"[:56]
+                hint = str(tool_input.get("command",
+                           tool_input.get("content", "")))[:96]
+            elif command:
+                summary = f"{tool}: {command[:40]}"[:56]
+                hint = command[:96]
+            else:
+                hint = str(next(iter(tool_input.values()), ""))[:96]
 
         resp = request_response({
             "event": "PreToolUse",
             "tool_use_id": evt.get("tool_use_id", ""),
             "tool": tool,
+            "summary": summary,
             "hint": hint,
             "session_id": sid,
         })

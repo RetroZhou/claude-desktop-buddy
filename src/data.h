@@ -18,7 +18,8 @@ struct TamaState {
   uint16_t lineGen;          // bumps when lines change — lets UI reset scroll
   char     promptId[40];     // pending permission request ID; empty = no prompt
   char     promptTool[20];
-  char     promptHint[100];
+  char     promptSummary[60]; // human-readable summary (e.g. "Edit src/main.cpp")
+  char     promptHint[100];   // raw CLI code / command details
 };
 
 // ---------------------------------------------------------------------------
@@ -116,11 +117,13 @@ static void _applyJson(const char* line, TamaState* out) {
   JsonObject pr = doc["prompt"];
   if (!pr.isNull()) {
     const char* pid = pr["id"]; const char* pt = pr["tool"]; const char* ph = pr["hint"];
-    strncpy(out->promptId,   pid ? pid : "", sizeof(out->promptId)-1);   out->promptId[sizeof(out->promptId)-1]=0;
-    strncpy(out->promptTool, pt  ? pt  : "", sizeof(out->promptTool)-1); out->promptTool[sizeof(out->promptTool)-1]=0;
-    strncpy(out->promptHint, ph  ? ph  : "", sizeof(out->promptHint)-1); out->promptHint[sizeof(out->promptHint)-1]=0;
+    const char* ps = pr["summary"];
+    strncpy(out->promptId,      pid ? pid : "", sizeof(out->promptId)-1);      out->promptId[sizeof(out->promptId)-1]=0;
+    strncpy(out->promptTool,    pt  ? pt  : "", sizeof(out->promptTool)-1);    out->promptTool[sizeof(out->promptTool)-1]=0;
+    strncpy(out->promptSummary, ps  ? ps  : "", sizeof(out->promptSummary)-1); out->promptSummary[sizeof(out->promptSummary)-1]=0;
+    strncpy(out->promptHint,    ph  ? ph  : "", sizeof(out->promptHint)-1);    out->promptHint[sizeof(out->promptHint)-1]=0;
   } else {
-    out->promptId[0] = 0; out->promptTool[0] = 0; out->promptHint[0] = 0;
+    out->promptId[0] = 0; out->promptTool[0] = 0; out->promptSummary[0] = 0; out->promptHint[0] = 0;
   }
   out->lastUpdated = millis();
   _lastLiveMs = millis();

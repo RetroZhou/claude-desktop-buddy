@@ -743,37 +743,85 @@ static void drawApprovalFullscreen() {
   spr.drawFastHLine(0, y, W, p.textDim);
   y += 6;
 
-  // Tool name — prominent
-  int tLen = strlen(tama.promptTool);
-  spr.setTextColor(p.text, p.bg);
-  if (tLen <= 10) {
-    spr.setTextSize(2);
-    spr.setCursor(4, y);
-    spr.print(tama.promptTool);
-    y += 22;
-  } else {
+  // Summary — human-readable description of what's being requested
+  if (tama.promptSummary[0]) {
+    spr.setTextColor(p.text, p.bg);
     spr.setTextSize(1);
-    spr.setCursor(4, y);
-    spr.print(tama.promptTool);
-    y += 12;
+    int slen = strlen(tama.promptSummary);
+    const int CHARS_PER_LINE = 21;
+    for (int i = 0; i * CHARS_PER_LINE < slen && i < 3; i++) {
+      spr.setCursor(4, y);
+      int remaining = slen - i * CHARS_PER_LINE;
+      int chars = remaining < CHARS_PER_LINE ? remaining : CHARS_PER_LINE;
+      spr.printf("%.*s", chars, tama.promptSummary + i * CHARS_PER_LINE);
+      y += 10;
+    }
+  } else {
+    // Fallback: show tool name if no summary
+    int tLen = strlen(tama.promptTool);
+    spr.setTextColor(p.text, p.bg);
+    if (tLen <= 10) {
+      spr.setTextSize(2);
+      spr.setCursor(4, y);
+      spr.print(tama.promptTool);
+      y += 20;
+    } else {
+      spr.setTextSize(1);
+      spr.setCursor(4, y);
+      spr.print(tama.promptTool);
+      y += 12;
+    }
   }
   spr.setTextSize(1);
 
-  // Separator
+  // Separator before code
   y += 2;
   spr.drawFastHLine(4, y, W - 8, p.textDim);
-  y += 8;
+  y += 6;
 
-  // Hint text — word-wrapped across available lines
-  spr.setTextColor(p.textDim, p.bg);
+  // Hint text (raw CLI code) — word-wrapped, with diff coloring
   int hlen = strlen(tama.promptHint);
-  const int CHARS_PER_LINE = 21;
+  const int CHARS_PER_LINE_H = 21;
   int maxLines = (H - 20 - y) / 10;
-  for (int line = 0; line < maxLines && line * CHARS_PER_LINE < hlen; line++) {
-    spr.setCursor(4, y);
-    int remaining = hlen - line * CHARS_PER_LINE;
-    int chars = remaining < CHARS_PER_LINE ? remaining : CHARS_PER_LINE;
-    spr.printf("%.*s", chars, tama.promptHint + line * CHARS_PER_LINE);
+  // Split hint into lines by \n or by wrapping
+  const char* hptr = tama.promptHint;
+  int hrem = hlen;
+  const uint16_t DIFF_RED_BG  = 0x3000;  // dark red background for removed lines
+  const uint16_t DIFF_GREEN_BG = 0x0280; // dark green background for added lines
+  for (int line = 0; line < maxLines && hrem > 0; line++) {
+    // Find next newline or wrap point
+    const char* nl = (const char*)memchr(hptr, '\n', hrem);
+    int lineLen = nl ? (int)(nl - hptr) : hrem;
+    if (lineLen > CHARS_PER_LINE_H) lineLen = CHARS_PER_LINE_H;
+
+    // Determine line color based on diff prefix
+    char firstChar = hptr[0];
+    uint16_t bg = p.bg;
+    uint16_t fg = p.textDim;
+    if (firstChar == '-') {
+      bg = DIFF_RED_BG;
+      fg = HOT;
+    } else if (firstChar == '+') {
+      bg = DIFF_GREEN_BG;
+      fg = GREEN;
+    }
+
+    // Draw background highlight for diff lines
+    if (bg != p.bg) {
+      spr.fillRect(0, y, W, 10, bg);
+    }
+    spr.setTextColor(fg, bg);
+    spr.setCursor(4, y + 1);
+    spr.printf("%.*s", lineLen, hptr);
+
+    // Advance past this line
+    if (nl && (int)(nl - hptr) <= CHARS_PER_LINE_H) {
+      hptr = nl + 1;
+      hrem -= (lineLen + 1);
+    } else {
+      hptr += lineLen;
+      hrem -= lineLen;
+    }
     y += 10;
   }
 
@@ -1065,6 +1113,18 @@ void loop() {
 
   bool inPrompt = tama.promptId[0] && !responseSent;
 
+  // Detect transition out of approval screen — show blank for 500ms to avoid
+  // visual persistence of approval text behind the pet.
+  static bool wasInPrompt = false;
+  static uint32_t promptExitMs = 0;
+  if (wasInPrompt && !inPrompt) {
+    promptExitMs = millis();
+    characterInvalidate();
+    if (buddyMode) buddyInvalidate();
+  }
+  wasInPrompt = inPrompt;
+  bool promptCooldown = !inPrompt && promptExitMs && (millis() - promptExitMs < 500);
+
   // Button-press wake. Track which button woke the screen so its full
   // press cycle (including long-press) is swallowed — you don't want
   // BtnA-to-wake to also cycle displayMode or open the menu.
@@ -1216,6 +1276,10 @@ void loop() {
     // (which draws direct-to-LCD below)
   } else if (inPrompt) {
     // Full-screen approval — skip pet, clear canvas
+    const Palette& p = characterPalette();
+    spr.fillSprite(p.bg);
+  } else if (promptCooldown) {
+    // Brief blank after approval dismissed — avoids text ghosting into pet
     const Palette& p = characterPalette();
     spr.fillSprite(p.bg);
   } else if (buddyMode) {

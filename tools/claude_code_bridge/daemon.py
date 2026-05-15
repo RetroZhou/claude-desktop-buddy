@@ -57,9 +57,10 @@ def log(msg: str) -> None:
 class PendingPrompt:
     """A PreToolUse request waiting for device response."""
 
-    def __init__(self, tool_use_id: str, tool: str, hint: str) -> None:
+    def __init__(self, tool_use_id: str, tool: str, summary: str, hint: str) -> None:
         self.tool_use_id = tool_use_id
         self.tool = tool
+        self.summary = summary
         self.hint = hint
         self.future: asyncio.Future = asyncio.get_running_loop().create_future()
         self.created_at: float = time.time()
@@ -113,6 +114,7 @@ class State:
             snap["prompt"] = {
                 "id": self.pending_prompt.tool_use_id,
                 "tool": self.pending_prompt.tool,
+                "summary": self.pending_prompt.summary,
                 "hint": self.pending_prompt.hint,
             }
         if now < self.notify_flash_until:
@@ -356,6 +358,7 @@ async def handle_pre_tool_use(state: State, evt: dict, writer: asyncio.StreamWri
     """Handle PreToolUse: push prompt to device, wait for button press, respond."""
     tool_use_id = evt.get("tool_use_id", "")
     tool = evt.get("tool", "")
+    summary = evt.get("summary", tool)
     hint = evt.get("hint", "")
 
     # If already handling a prompt or BLE is down, abstain immediately
@@ -371,7 +374,7 @@ async def handle_pre_tool_use(state: State, evt: dict, writer: asyncio.StreamWri
         return
 
     # Create pending prompt and push to device
-    prompt = PendingPrompt(tool_use_id, tool, hint)
+    prompt = PendingPrompt(tool_use_id, tool, summary, hint)
     state.pending_prompt = prompt
     state.dirty.set()  # trigger immediate snapshot with prompt data
     log(f"PreToolUse pending: {tool} ({tool_use_id[:8]})")
