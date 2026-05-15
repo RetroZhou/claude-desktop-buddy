@@ -761,6 +761,9 @@ static void drawApprovalFullscreen() {
     toolBg = TOOL_BG_EXEC; toolFg = 0xFC9F;  // light magenta text
   } else if (strcmp(t, "Plan") == 0 || strcmp(t, "Task") == 0) {
     toolBg = TOOL_BG_PLAN; toolFg = 0x67FF;  // light cyan text
+  } else {
+    // All other tools — orange accent
+    toolBg = 0x4200; toolFg = 0xFE60;        // amber/orange
   }
 
   if (tama.promptSummary[0]) {
