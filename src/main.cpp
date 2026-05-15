@@ -744,32 +744,58 @@ static void drawApprovalFullscreen() {
   y += 6;
 
   // Summary — human-readable description of what's being requested
+  // Color-code background by tool category
+  const uint16_t TOOL_BG_READ  = 0x0013;  // dark blue — read/search ops
+  const uint16_t TOOL_BG_WRITE = 0x4200;  // dark amber — write/edit ops
+  const uint16_t TOOL_BG_EXEC  = 0x4008;  // dark magenta — shell execution
+  const uint16_t TOOL_BG_PLAN  = 0x2010;  // dark teal — planning/thinking
+
+  uint16_t toolBg = p.bg;
+  uint16_t toolFg = p.text;
+  const char* t = tama.promptTool;
+  if (strcmp(t, "Read") == 0 || strcmp(t, "Grep") == 0 || strcmp(t, "Glob") == 0) {
+    toolBg = TOOL_BG_READ; toolFg = 0x5DFF;  // light blue text
+  } else if (strcmp(t, "Edit") == 0 || strcmp(t, "Write") == 0) {
+    toolBg = TOOL_BG_WRITE; toolFg = 0xFE60; // light amber text
+  } else if (strcmp(t, "Bash") == 0) {
+    toolBg = TOOL_BG_EXEC; toolFg = 0xFC9F;  // light magenta text
+  } else if (strcmp(t, "Plan") == 0 || strcmp(t, "Task") == 0) {
+    toolBg = TOOL_BG_PLAN; toolFg = 0x67FF;  // light cyan text
+  }
+
   if (tama.promptSummary[0]) {
-    spr.setTextColor(p.text, p.bg);
-    spr.setTextSize(1);
     int slen = strlen(tama.promptSummary);
     const int CHARS_PER_LINE = 21;
+    int summaryLines = (slen + CHARS_PER_LINE - 1) / CHARS_PER_LINE;
+    if (summaryLines > 3) summaryLines = 3;
+    // Draw background block for summary
+    spr.fillRect(0, y, W, summaryLines * 10 + 2, toolBg);
+    spr.setTextColor(toolFg, toolBg);
+    spr.setTextSize(1);
     for (int i = 0; i * CHARS_PER_LINE < slen && i < 3; i++) {
-      spr.setCursor(4, y);
+      spr.setCursor(4, y + 1);
       int remaining = slen - i * CHARS_PER_LINE;
       int chars = remaining < CHARS_PER_LINE ? remaining : CHARS_PER_LINE;
       spr.printf("%.*s", chars, tama.promptSummary + i * CHARS_PER_LINE);
       y += 10;
     }
+    y += 2;
   } else {
     // Fallback: show tool name if no summary
     int tLen = strlen(tama.promptTool);
-    spr.setTextColor(p.text, p.bg);
+    int blockH = (tLen <= 10) ? 20 : 12;
+    spr.fillRect(0, y, W, blockH + 2, toolBg);
+    spr.setTextColor(toolFg, toolBg);
     if (tLen <= 10) {
       spr.setTextSize(2);
-      spr.setCursor(4, y);
+      spr.setCursor(4, y + 1);
       spr.print(tama.promptTool);
-      y += 20;
+      y += 22;
     } else {
       spr.setTextSize(1);
-      spr.setCursor(4, y);
+      spr.setCursor(4, y + 1);
       spr.print(tama.promptTool);
-      y += 12;
+      y += 14;
     }
   }
   spr.setTextSize(1);
